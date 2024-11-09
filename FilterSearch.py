@@ -1,7 +1,7 @@
 from ossapi import *
 import logging
 from tkinter import *
-api = Ossapi(32064, "4QsKVAODIO0KtUZGKoCqLI2tkaQgpBWH31b0E5NU")
+api = Ossapi(user id, "[Use your client secret here]")
 
 user = api.user("Wimpy Cursed", key=UserLookupKey.USERNAME)
 print(user.id)
