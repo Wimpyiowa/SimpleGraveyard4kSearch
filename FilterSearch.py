@@ -1,11 +1,22 @@
 from ossapi import *
 import logging
 from tkinter import *
-api = Ossapi(user id, "[Use your client secret here]")
+import random
+import pandas as pd
+
+api = Ossapi(user id, "Client Secret")
 
 user = api.user("Wimpy Cursed", key=UserLookupKey.USERNAME)
 print(user.id)
 
+csv_file = "beatmap.csv"
+
+header_written = False
+try:
+    with open(csv_file, 'x', newline='') as file:
+        header_written = True
+except FileExistsError:
+    pass #File already exists; no need to write headers
 
 #       TEST
 #beatmapSearch = api.beatmap(281219)
@@ -40,29 +51,31 @@ def Filters():
     global text
     osuFilterLabel = Label(root, text="Enter query (Ex. Tech)", font=200, bg="black", fg="white")
     osuFilterInput = Entry(root)
-    osuButtonFilter = Button(root, text="Next", command=lambda: (retrieve_input(), clickSearch(), difficultyFilters(), osuFilterLabel.destroy(), osuFilterInput.destroy(), osuButtonFilter.destroy()))
+   # osuFliterRemoveLabel = Label(root, text = "What to not include", font=200, bg="black", fg="white")
+    #osuFilterRemove = Entry(root)
+    osuButtonFilter = Button(root, text="Next", command=lambda: (retrieve_input(), clickSearch(), osuFilterLabel.destroy(), osuFilterInput.destroy(), osuButtonFilter.destroy()))#osuFliterRemoveLabel.destroy(), osuFilterRemove.destroy()))
 
 
     osuFilterLabel.place(rely=0.225, relx=0.5, anchor=CENTER)
     osuFilterInput.place(rely=0.4, relx=0.5, anchor=CENTER)
-    osuButtonFilter.place(relx=0.5, rely=0.5, anchor=CENTER)
+    #osuFliterRemoveLabel.place(rely=0.525, relx=0.5, anchor=CENTER)
+    #osuFilterRemove.place(rely=0.6, relx=0.5, anchor=CENTER)
+    osuButtonFilter.place(relx=0.5, rely=0.7, anchor=CENTER)
 
     def retrieve_input():
         global text
+        #global remove
         text = osuFilterInput.get()
+        #remove = osuFilterRemove.get()
         osuInput = open("TestData.txt", "w")
         osuInput.write(text)
-
-def difficultyFilters():
-    pass
-
 
 
 
 # Loop through each beatmap set in the search results
 def clickSearch():
     beatmapSearch = api.search_beatmapsets(query=text, mode=BeatmapsetSearchMode.MANIA, 
-                                       category=BeatmapsetSearchCategory.GRAVEYARD, 
+                                       category=BeatmapsetSearchCategory.ANY, 
                                        genre=BeatmapsetSearchGenre.ANY, language=BeatmapsetSearchLanguage.ANY, 
                                        force_video=False, force_recommended_difficulty=False, 
                                        include_converts=False)
@@ -87,43 +100,72 @@ def clickSearch():
     searchButton.place(rely=0.6, relx=0.5, anchor=CENTER)
 
     def SearchBeatmaps():
+        global header_written
+        global text
+        #global remove
+        
         difficulty = Difficulty.get()
         popularity = Popularity.get() 
+
+        difficultyRebound = Difficulty.get() + 1.50
+
+        
 
         file = open("osu!map Data.txt", "a+")
         file.write(f"\nInstance for {text}, Difficulty: {difficulty}, playcount: {popularity}\n\n\n")
         file.close()
 
-        for results in beatmapSearch.beatmapsets:
-            results
+        random_beatmap = random.sample(beatmapSearch.beatmapsets, 40)
+
+        search_tags = set(text.lower().split())
+        #remove_tags = set(remove.lower().split())
+
+        for results in random_beatmap:
+            beatmapset_data = []
+            print(f"Name: {results.title}")
+            file = open("osu!map Data.txt", "a+")
+            file.write(f"\nName: {results.title}")
+            file.close()
+
         # Access individual beatmaps within each beatmap set
             for beatmap in results.beatmaps:
-                if float(beatmap.difficulty_rating) > difficulty and float(beatmap.passcount) > popularity and beatmap.cs == 4 :
-                    print(f"Name: {results.title}")
+                beatmapset_tags = set(results.tags.lower().split())
+
+
+                if float(beatmap.difficulty_rating) >= difficulty and float(beatmap.difficulty_rating) <= difficultyRebound and float(beatmap.playcount) >= popularity and beatmap.cs == 4 and search_tags & beatmapset_tags: 
+                #and beatmapset_tags != remove_tags
+                    
                     print(f"Difficulty Name: {beatmap.version}")
                     print(f"Stars: {beatmap.difficulty_rating}")
                     print(f"BPM {beatmap.bpm}")
                     print(f"Playcount: {beatmap.playcount}")
                     print(f"Link: {beatmap.url}")
 
-
-                    
-
                     file = open("osu!map Data.txt", "a+")
-                    file.write(f"\nName: {results.title}\nDifficulty Name: {beatmap.version}\nStars: {beatmap.difficulty_rating}\nBPM: {beatmap.bpm}\nPlaycount: {beatmap.playcount}\nLink: {beatmap.url}\n")
+                    file.write(f"\nDifficulty Name: {beatmap.version}\nStars: {beatmap.difficulty_rating}\nBPM: {beatmap.bpm}\nPlaycount: {beatmap.playcount}\nLink: {beatmap.url}\n")
                     file.close()
 
                     logging.info(f"Name: {results.title}, Difficulty Name: {beatmap.version}, Difficulty {beatmap.difficulty_rating}, BPM: {beatmap.bpm}, Playcount: {beatmap.playcount}, Link: {beatmap.url}")
+                    beatmap_info = {
+                        "Title": results.title,
+                        "Artist": results.artist,
+                        "Difficulty": beatmap.difficulty_rating,
+                        "BPM": beatmap.bpm,
+                        "Playcount": beatmap.playcount,
+                        "Link": beatmap.url
+                    }
+
+                    beatmapset_data.append(beatmap_info)
                 else:
                     print("Wasteland.")
+
+            df = pd.DataFrame(beatmapset_data)
+
+            df.to_csv(csv_file, mode='a', index=False, header=not header_written)
+            header_written = True
 
         finishedLabel = Label(root, text="Beatmaps Searched.\nFile has been created.\nYou can now close\nthis window.", bg="black", fg="white")
 
         finishedLabel.place(rely = 0.5, relx=0.5, anchor=CENTER)
-#import pandas as pd
-#df = pd.read_csv("osu!Maps.csv")
-
-#print (df.head(5))
-
 
 root.mainloop()
